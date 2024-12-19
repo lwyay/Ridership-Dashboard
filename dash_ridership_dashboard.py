@@ -46,7 +46,7 @@ events = [
 
 # Initialize the Dash app
 app = Dash(__name__)
-
+server = app.server
 # Layout of the app
 app.layout = html.Div([
     html.H1("Daily Ridership Dashboard", style={'text-align': 'center'}),
