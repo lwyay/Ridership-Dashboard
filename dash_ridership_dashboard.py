@@ -6,7 +6,7 @@ import holidays
 import datetime
 
 # Load and clean the data
-file_path = 'https://github.com/lwyay/Ridership-Dashboard/blob/main/Daily%20Ridership%20-%20Data%20View%20(1).csv'
+file_path = 'https://raw.githubusercontent.com/lwyay/Ridership-Dashboard/main/Daily%20Ridership%20-%20Data%20View%20(1).csv'
 data = pd.read_csv(file_path, encoding='utf-16', delimiter='\t', header=1)
 
 # Convert the 'Date' column to datetime
@@ -19,7 +19,7 @@ for column in ['Bus', 'Rail', 'Grand Total']:
 # Add Month, Year, and Day of Week columns for filtering and hover
 data['Month'] = data['Date'].dt.month_name()
 data['Year'] = data['Date'].dt.year
-data['Day'] = data['Date'].dt.day_name()  # Add day of the week (e.g., Mon, Tue)
+data['Day'] = data['Date'].dt.day_name()
 
 # Generate US holidays for the years in the dataset
 us_holidays = holidays.US(years=range(data['Year'].min(), data['Year'].max() + 1))
@@ -47,6 +47,7 @@ events = [
 # Initialize the Dash app
 app = Dash(__name__)
 server = app.server
+
 # Layout of the app
 app.layout = html.Div([
     html.H1("Daily Ridership Dashboard", style={'text-align': 'center'}),
@@ -138,12 +139,7 @@ def update_graph(selected_month, selected_year, selected_modes, filters):
             x=filtered_data['Date'], 
             y=filtered_data[mode],
             mode='lines', 
-            name=mode,
-            hovertemplate=(
-                "%{x|%Y-%m-%d} (%{customdata[0]})<br>"
-                f"{mode} Riders: %{{y}}"
-            ),
-            customdata=filtered_data[['Day']].values
+            name=mode
         ))
 
     # Add vertical dotted lines for holidays
@@ -158,111 +154,42 @@ def update_graph(selected_month, selected_year, selected_modes, filters):
             )
             fig.add_annotation(
                 x=row['Date'],
-                y=max(filtered_data['Grand Total']) + 5000,
+                y=max(filtered_data['Grand Total']),
                 text=row['Holiday_Name'],
                 showarrow=False,
-                yshift=(idx % 2) * 20 - 10,
-                bgcolor="white",
                 font=dict(size=10, color="grey")
             )
 
     # Add vertical dotted lines for events
     if 'Events' in filters:
-        for idx, event in enumerate(events):
+        for event in events:
             if pd.Timestamp(event["date"]) in filtered_data['Date'].values:
                 fig.add_shape(
                     type="line",
                     x0=event["date"], x1=event["date"],
                     y0=0, y1=max(filtered_data['Grand Total']),
-                    line=dict(color="grey", dash="dash")
+                    line=dict(color="blue", dash="dash")
                 )
                 fig.add_annotation(
                     x=event["date"],
-                    y=max(filtered_data['Grand Total']) - 5000,
+                    y=max(filtered_data['Grand Total']),
                     text=event["description"],
                     showarrow=False,
-                    yshift=(idx % 2) * 20 - 10,
-                    bgcolor="white",
-                    font=dict(size=10, color="grey")
+                    font=dict(size=10, color="blue")
                 )
 
-    # Update layout with custom y-axis ticks
+    # Update layout
     fig.update_layout(
-                title="Ridership Trends Over Time",
-        xaxis=dict(title="Date", showgrid=True),
-        yaxis=dict(
-            title="Ridership Count",
-            showgrid=True,
-            tick0=0,
-            dtick=50000
-        ),
-        legend_title="Ridership Modes",
+        title="Ridership Trends Over Time",
+        xaxis_title="Date",
+        yaxis_title="Ridership Count",
         hovermode="x unified"
     )
 
     return fig
 
-# Callback to update the table with insightful data
-@app.callback(
-    [Output('summary-table', 'data'),
-     Output('summary-table', 'columns')],
-    [Input('year-filter', 'value'),
-     Input('month-filter', 'value')]
-)
-def update_table(selected_year, selected_month):
-    # Default columns structure to return if no data is available
-    default_columns = [{"name": "Insight", "id": "Insight"}, 
-                       {"name": "Date", "id": "Date"},
-                       {"name": "Day", "id": "Day"}, 
-                       {"name": "Ridership", "id": "Ridership"}]
-
-    if not selected_year and not selected_month:
-        # Default: Show total ridership by year
-        yearly_data = data.groupby('Year').agg({'Grand Total': 'sum'}).reset_index()
-        yearly_data.rename(columns={'Grand Total': 'Total Ridership'}, inplace=True)
-        columns = [{'name': col, 'id': col} for col in yearly_data.columns]
-        return yearly_data.to_dict('records'), columns
-
-    if selected_year and not selected_month:
-        # Year selected: Show busiest and quietest days of the year
-        year_data = data[data['Year'] == selected_year]
-        if year_data.empty:
-            return [], default_columns  # Return empty data and default columns
-
-        busiest_day = year_data.loc[year_data['Grand Total'].idxmax()]
-        quietest_day = year_data.loc[year_data['Grand Total'].idxmin()]
-        summary = pd.DataFrame([
-            {"Insight": "Busiest Day", "Date": busiest_day['Date'].strftime('%Y-%m-%d'), 
-             "Day": busiest_day['Day'], "Ridership": busiest_day['Grand Total']},
-            {"Insight": "Quietest Day", "Date": quietest_day['Date'].strftime('%Y-%m-%d'), 
-             "Day": quietest_day['Day'], "Ridership": quietest_day['Grand Total']}
-        ])
-        columns = [{'name': col, 'id': col} for col in summary.columns]
-        return summary.to_dict('records'), columns
-
-    if selected_year and selected_month:
-        # Year and month selected: Show busiest, quietest day, and monthly total
-        month_data = data[(data['Year'] == selected_year) & (data['Month'] == selected_month)]
-        if month_data.empty:
-            return [], default_columns  # Return empty data and default columns
-
-        busiest_day = month_data.loc[month_data['Grand Total'].idxmax()]
-        quietest_day = month_data.loc[month_data['Grand Total'].idxmin()]
-        monthly_total = month_data['Grand Total'].sum()
-        summary = pd.DataFrame([
-            {"Insight": "Busiest Day", "Date": busiest_day['Date'].strftime('%Y-%m-%d'), 
-             "Day": busiest_day['Day'], "Ridership": busiest_day['Grand Total']},
-            {"Insight": "Quietest Day", "Date": quietest_day['Date'].strftime('%Y-%m-%d'), 
-             "Day": quietest_day['Day'], "Ridership": quietest_day['Grand Total']},
-            {"Insight": "Monthly Total", "Date": "N/A", "Day": "N/A", "Ridership": monthly_total}
-        ])
-        columns = [{'name': col, 'id': col} for col in summary.columns]
-        return summary.to_dict('records'), columns
-
-    # Fallback: Return empty data and default columns
-    return [], default_columns
-
-# Run the Dash app
 if __name__ == '__main__':
     app.run_server(debug=True)
+# Expose the Flask server instance
+
 
