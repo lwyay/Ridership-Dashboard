@@ -6,7 +6,7 @@ import holidays
 import datetime
 
 # Load and clean the data
-file_path = 'Daily Ridership - Data View (1).csv'
+file_path = 'https://github.com/lwyay/Ridership-Dashboard/blob/main/Daily%20Ridership%20-%20Data%20View%20(1).csv'
 data = pd.read_csv(file_path, encoding='utf-16', delimiter='\t', header=1)
 
 # Convert the 'Date' column to datetime
